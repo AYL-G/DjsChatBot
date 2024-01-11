@@ -1,0 +1,110 @@
+	TO BE ADDED IN MAIN
+
+const getApp = (guildID) => {
+    const app = client.api.applications(client.user.id)
+    if(guildID){
+        app.guilds(guildID)
+    }
+    return app
+}
+
+client.on('ready', async () => {
+    const guildID = process.env.guildID;
+    const commands = await getApp(guildID).commands.get() //retrieve commands
+    console.log(commands)
+
+    //ping pong
+    await getApp(guildID).commands.post({ //create commands
+        data: {
+            name:'ping',
+            description: 'test command'
+        }
+    }) 
+
+    //TO DELETE THE COMMAND FROM MY SERVER
+    //await getApp(guildID).commands('id in console.log').delete()
+    //also comment the await code down there
+
+    await getApp(guildID).commands.post({
+        data: {
+            name: 'embed',
+            description: 'Test embed',
+            options: [
+                {
+                    name: 'name',
+                    description: 'Your name',
+                    required: true,
+                    type: 3 //string
+                },
+                {
+                    name:'age',
+                    description: 'Your age',
+                    required: false,
+                    type: 4 //int
+                }
+            ]
+        }
+    })
+
+    client.ws.on('INTERACTION_CREATE', async(interaction) =>{
+        const { name, options } = interaction.data
+
+        const command = name.toLowerCase()
+
+        const args = {}
+
+        console.log(options)
+
+        if(options) {
+            for(const option of options){
+                const{ name,value } = option
+                args[name] = value
+                console.log(args)
+            }
+        }
+        
+        if(command === 'ping') {
+            reply(interaction, 'pong')
+        }else if(command === 'embed') {
+            const embed=new Discord.MessageEmbed()
+            .setTitle("TEST")
+            //.setColor("BLUE")
+            for(const arg in args) {
+                const value = args[arg]
+                embed.addField(arg, value)
+            }
+            reply(interaction, embed)
+
+        }
+    })
+
+    const reply = async (interaction, response) => {
+
+        let data = {
+            content: response,
+        }
+        //check for embeds
+        if(typeof response === 'object') {
+            data = await createAPIMessage(interaction, response)
+        }
+
+        client.api.interactions(interaction.id, interaction.token).callback.post({
+            data:{
+                type: 4,
+                data,
+            }  
+        })
+    }
+
+    const createAPIMessage = async (interaction, content) => {
+          const { data, files} = await Discord.APIMessage.create(
+              client.channels.resolve(interaction.channel_id),
+             content
+            )
+         .resolveData()
+         .resolveFiles()
+
+         return { ...data, files }
+    }
+
+})
